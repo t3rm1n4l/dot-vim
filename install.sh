@@ -1,5 +1,10 @@
 #!/bin/bash
 #Description: Install vim configs
 
-mv vim ~/.vim
-mv vimrc ~/.vimrc
+if [ -d ~/.vim ];
+then
+    mv ~/.vim ~/.vim_backup
+fi
+
+cp -rf vim ~/.vim
+cp -f vimrc ~/.vimrc
