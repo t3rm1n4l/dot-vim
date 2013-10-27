@@ -71,3 +71,6 @@ endfunction
 nmap <F9> mz:execute TabToggle()<CR>'z
 autocmd BufNewFile,BufReadPost *.go set filetype=go
 autocmd BufNewFile,BufReadPost *.go call TabToggle()
+set mouse=a
+map <ScrollWheelUp> <C-Y>
+map <ScrollWheelDown> <C-E>
