@@ -35,7 +35,7 @@ set hlsearch
 set wrap
 set textwidth=79
 set formatoptions=qrn1
-set colorcolumn=85
+set colorcolumn=80
 set list
 set listchars=tab:▸\ ,eol:¬
 syntax on
@@ -71,6 +71,19 @@ endfunction
 nmap <F9> mz:execute TabToggle()<CR>'z
 autocmd BufNewFile,BufReadPost *.go set filetype=go
 autocmd BufNewFile,BufReadPost *.go call TabToggle()
+autocmd FileType go autocmd BufWritePre <buffer> Fmt
 set mouse=a
 map <ScrollWheelUp> <C-Y>
 map <ScrollWheelDown> <C-E>
+nmap <F8> :TagbarToggle<CR>
+map <F2> :NERDTreeToggle<CR>
+
+au VimEnter * RainbowParenthesesToggle
+au Syntax * RainbowParenthesesLoadRound
+au Syntax * RainbowParenthesesLoadSquare
+au Syntax * RainbowParenthesesLoadBraces
+
+au FileType python set omnifunc=pythoncomplete#Complete
+let g:SuperTabDefaultCompletionType = "context"
+
+set completeopt=menuone,longest,preview
