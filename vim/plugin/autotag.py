@@ -1,4 +1,5 @@
 """
+(c) Craig Emery 2016
 AutoTag.py
 """
 
@@ -6,7 +7,7 @@ import os
 import os.path
 import fileinput
 import sys
-import vim
+import vim  # pylint: disable=F0401
 import logging
 from collections import defaultdict
 
@@ -24,6 +25,7 @@ GLOBALS_DEFAULTS = dict(maxTagsFileSize=1024 * 1024 * 7,
                         VerbosityLevel=logging.WARNING,
                         CtagsCmd="ctags",
                         TagsFile="tags",
+                        TagsDir="",
                         Disabled=0,
                         StopAt=0)
 
@@ -47,15 +49,20 @@ if sys.version < '2.4':
 else:
     import subprocess
 
+    kw = {"shell": True,
+          "stdin": subprocess.PIPE,
+          "stdout": subprocess.PIPE,
+          "stderr": subprocess.PIPE}
+    if sys.version >= '3.5':
+        kw["universal_newlines"] = True
+
     def do_cmd(cmd, cwd):
         """ Abstract subprocess """
-        p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                             cwd=cwd)
+        p = subprocess.Popen(cmd, cwd=cwd, **kw)
         so = p.communicate()[0]
         return so.split("\n")
 
     from traceback import format_exc
-
 
 def vim_global(name, kind=str):
     """ Get global variable from vim, cast it appropriately """
@@ -129,9 +136,9 @@ except NameError:
     setLoggerVerbosity()
 
 
-class AutoTag:
+class AutoTag(object):  # pylint: disable=R0902
     """ Class that does auto ctags updating """
-    MAXTAGSFILESIZE = long(vim_global("maxTagsFileSize"))
+    MAXTAGSFILESIZE = int(vim_global("maxTagsFileSize"))
     LOG = LOGGER
 
     def __init__(self):
@@ -141,6 +148,8 @@ class AutoTag:
         self.sep_used_by_ctags = '/'
         self.ctags_cmd = vim_global("CtagsCmd")
         self.tags_file = str(vim_global("TagsFile"))
+        self.tags_dir = str(vim_global("TagsDir"))
+        self.parents = os.pardir * (len(os.path.split(self.tags_dir)) - 1)
         self.count = 0
         self.stop_at = vim_global("StopAt")
 
@@ -153,7 +162,7 @@ class AutoTag:
             fname = os.path.dirname(fname)
             AutoTag.LOG.info('drive = "%s", file = "%s"', drive, fname)
             tags_dir = os.path.join(drive, fname)
-            tags_file = os.path.join(tags_dir, self.tags_file)
+            tags_file = os.path.join(tags_dir, self.tags_dir, self.tags_file)
             AutoTag.LOG.info('testing tags_file "%s"', tags_file)
             if os.path.isfile(tags_file):
                 st = os.stat(tags_file)
@@ -191,7 +200,7 @@ class AutoTag:
             return
         found = self.findTagFile(source)
         if found:
-            tags_dir, tags_file = found
+            (tags_dir, tags_file) = found  # pylint: disable=W0633
             relative_source = os.path.splitdrive(source)[1][len(tags_dir):]
             if relative_source[0] == os.sep:
                 relative_source = relative_source[1:]
@@ -220,7 +229,7 @@ class AutoTag:
             for l in source:
                 l = l.strip()
                 if self.goodTag(l, sources):
-                    print l
+                    print(l)
         finally:
             source.close()
             try:
@@ -230,16 +239,18 @@ class AutoTag:
 
     def updateTagsFile(self, tags_dir, tags_file, sources):
         """ Strip all tags for the source file, then re-run ctags in append mode """
+        if self.tags_dir:
+            sources = [os.path.join(self.parents + s) for s in sources]
         self.stripTags(tags_file, sources)
         if self.tags_file:
             cmd = "%s -f %s -a " % (self.ctags_cmd, self.tags_file)
         else:
             cmd = "%s -a " % (self.ctags_cmd,)
         for source in sources:
-            if os.path.isfile(os.path.join(tags_dir, source)):
+            if os.path.isfile(os.path.join(tags_dir, self.tags_dir, source)):
                 cmd += ' "%s"' % source
         AutoTag.LOG.log(1, "%s: %s", tags_dir, cmd)
-        for l in do_cmd(cmd, tags_dir):
+        for l in do_cmd(cmd, self.tags_dir or tags_dir):
             AutoTag.LOG.log(10, l)
 
     def rebuildTagFiles(self):
@@ -255,5 +266,5 @@ def autotag():
             at = AutoTag()
             at.addSource(vim.eval("expand(\"%:p\")"))
             at.rebuildTagFiles()
-    except Exception:
+    except Exception:  # pylint: disable=W0703
         logging.warning(format_exc())
